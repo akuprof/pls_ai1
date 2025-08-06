@@ -1,0 +1,15 @@
+{
+  "tasks": {
+    "start": "deno run --allow-net --allow-env --allow-read index.ts"
+  },
+  "importMap": "../import_map.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window"],
+    "strict": true
+  },
+  "_comments": {
+    "authentication": "This function manually verifies JWT tokens using supabaseClient.auth.getUser()",
+    "local_dev": "When running locally with 'supabase functions serve', use the --no-verify-jwt flag"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "pls_ai1",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "audit:test": "deno run --allow-env --allow-net scripts/test-audit-engine.ts",
+    "audit:run": "deno run --allow-env --allow-net scripts/daily-audit-engine.ts"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.2.1",
+    "@supabase/supabase-js": "^2.44.0",
+    "lucide-react": "^0.536.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.62.0",
+    "react-scripts": "5.0.1",
+    "recharts": "^3.1.2",
+    "zod": "^4.0.15"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
