@@ -11,11 +11,6 @@ import { supabase } from './lib/supabase';
 // --- Context for global state (e.g., user, auth status) ---
 const AppContext = createContext(null);
 
-// Global variables for Firebase/Supabase config (provided by Canvas environment)
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
 // Mock Data for demonstration
 const mockDrivers = [
   { id: 'd1', name: 'Ravi Kumar' },
@@ -156,13 +151,13 @@ const tripSheetSchema = z.object({
   date: z.string().min(1, { message: 'Date is required' }),
   startKm: z.number().min(0, { message: 'Start KM must be non-negative' }),
   endKm: z.number().min(0, { message: 'End KM must be non-negative' }),
-  fuelKg: z.number().min(0, { message: 'Fuel (kg) must be non-negative' }).nullable().optional(), // Made nullable/optional
-  cashCollected: z.number().min(0, { message: 'Cash collected must be non-negative' }).nullable().optional(), // Made nullable/optional
+  fuelKg: z.number().min(0, { message: 'Fuel (kg) must be non-negative' }).nullable().optional(),
+  cashCollected: z.number().min(0, { message: 'Cash collected must be non-negative' }).nullable().optional(),
   route: z.string().min(1, { message: 'Route is required' }),
 });
 
 const TripSheetForm = () => {
-  const { user } = useAuth(); // Get user from auth context
+  const { user } = useAuth();
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm({
     resolver: zodResolver(tripSheetSchema),
     defaultValues: {
@@ -172,7 +167,7 @@ const TripSheetForm = () => {
   });
   const [drivers, setDrivers] = useState([]);
   const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState(''); // 'success' or 'error'
+  const [messageType, setMessageType] = useState('');
 
   const [suggestedFuel, setSuggestedFuel] = useState(null);
   const [suggestedCash, setSuggestedCash] = useState(null);
@@ -189,25 +184,22 @@ const TripSheetForm = () => {
 
   useEffect(() => {
     const fetchDrivers = async () => {
-      // In a real app, this would be an API call to your backend /api/drivers
       const { data, error } = await supabase.from('drivers').select();
       if (error) {
         console.error('Error fetching drivers:', error);
       } else {
-        setDrivers(data);
+        setDrivers(data || mockDrivers);
       }
     };
     fetchDrivers();
   }, []);
 
   useEffect(() => {
-    // Clear previous timeout
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
 
     const getSuggestions = async () => {
-      // Only fetch suggestions if all required fields are present and user is authenticated
       if (driverId && route && startKm !== undefined && user) {
         setIsSuggesting(true);
         setSuggestedFuel(null);
@@ -215,13 +207,11 @@ const TripSheetForm = () => {
         setSuggestionNotes('');
 
         try {
-          // Replace with your actual Supabase Edge Function URL for smart-entry-suggestions
           const response = await fetch('https://bezbxacfnfgbbvgtwhxh.supabase.co/functions/v1/smart-entry-suggestions', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              // In a real app, you'd get the actual user token from Supabase Auth
-              'Authorization': `Bearer ${user.id}`, // Using user.id as a mock token for demonstration
+              'Authorization': `Bearer ${user.id}`,
             },
             body: JSON.stringify({
               driver_id: driverId,
@@ -245,32 +235,27 @@ const TripSheetForm = () => {
           setIsSuggesting(false);
         }
       } else {
-        // Clear suggestions if inputs are incomplete
         setSuggestedFuel(null);
         setSuggestedCash(null);
         setSuggestionNotes('');
       }
     };
 
-    // Set a new debounce timeout
-    debounceTimeoutRef.current = setTimeout(getSuggestions, 700); // Wait 700ms after last input
+    debounceTimeoutRef.current = setTimeout(getSuggestions, 700);
 
-    // Cleanup on unmount or dependency change
     return () => {
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [driverId, route, startKm, user]); // Re-run when these values change
+  }, [driverId, route, startKm, user]);
 
   const onSubmit = async (data) => {
     console.log('Form data:', data);
-    // In a real app, this would be an API call to your backend /api/trip-entry
-    // Ensure car_id is also sent, perhaps from a default or another input
     const payload = {
       ...data,
-      car_id: 'mock-car-id-123', // Placeholder for car_id
-      trip_date: data.date, // Ensure field name matches DB
+      car_id: 'mock-car-id-123',
+      trip_date: data.date,
       fuel_kg: data.fuelKg,
       cash_collected: data.cashCollected,
     };
@@ -280,7 +265,7 @@ const TripSheetForm = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.id}`, // Use actual user token
+          'Authorization': `Bearer ${user.id}`,
         },
         body: JSON.stringify(payload)
       });
@@ -290,8 +275,8 @@ const TripSheetForm = () => {
       if (response.ok) {
         setMessage('Trip sheet saved successfully!');
         setMessageType('success');
-        reset(); // Clear form after successful submission
-        setSuggestedFuel(null); // Clear suggestions
+        reset();
+        setSuggestedFuel(null);
         setSuggestedCash(null);
         setSuggestionNotes('');
       } else {
@@ -304,7 +289,7 @@ const TripSheetForm = () => {
       setMessage('Network error: Could not connect to the server.');
       setMessageType('error');
     }
-    setTimeout(() => setMessage(''), 5000); // Clear message after 5 seconds
+    setTimeout(() => setMessage(''), 5000);
   };
 
   return (
@@ -351,7 +336,6 @@ const TripSheetForm = () => {
             {errors.route && <p className="text-red-500 text-xs mt-1">{errors.route.message}</p>}
           </div>
 
-          {/* Fuel KG input with suggestions */}
           <div>
             <Label htmlFor="fuelKg">Fuel (KG)</Label>
             <Input type="number" id="fuelKg" step="0.1" {...register('fuelKg', { valueAsNumber: true })} className="mt-1" />
@@ -365,7 +349,6 @@ const TripSheetForm = () => {
             {errors.fuelKg && <p className="text-red-500 text-xs mt-1">{errors.fuelKg.message}</p>}
           </div>
 
-          {/* Cash Collected input with suggestions */}
           <div>
             <Label htmlFor="cashCollected">Cash Collected</Label>
             <Input type="number" id="cashCollected" step="0.01" {...register('cashCollected', { valueAsNumber: true })} className="mt-1" />
@@ -460,7 +443,7 @@ const CashFuelSummary = ({ data }) => {
   );
 };
 
-// --- DriverSelector Component (simple dropdown) ---
+// --- DriverSelector Component ---
 const DriverSelector = ({ selectedDriver, onSelectDriver }) => {
   const [drivers, setDrivers] = useState([]);
 
@@ -470,7 +453,7 @@ const DriverSelector = ({ selectedDriver, onSelectDriver }) => {
       if (error) {
         console.error('Error fetching drivers:', error);
       } else {
-        setDrivers(data);
+        setDrivers(data || mockDrivers);
       }
     };
     fetchDrivers();
@@ -512,12 +495,11 @@ const ChatInterface = () => {
     setIsLoading(true);
 
     try {
-      // Call your Supabase Edge Function for chat-query
       const response = await fetch('https://bezbxacfnfgbbvgtwhxh.supabase.co/functions/v1/chat-query', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.id}`, // Use actual user token
+          'Authorization': `Bearer ${user.id}`,
         },
         body: JSON.stringify({ query: newMessage.text, chatHistory: messages }),
       });
@@ -580,10 +562,277 @@ const ChatInterface = () => {
   );
 };
 
+// --- Page Components ---
+const EntryPage = () => {
+  return (
+    <div className="flex flex-col items-center justify-center h-full py-8">
+      <TripSheetForm />
+    </div>
+  );
+};
+
+const DashboardPage = () => {
+  const { user } = useAuth();
+  const [selectedDriver, setSelectedDriver] = useState('');
+  const [filteredTrips, setFilteredTrips] = useState([]);
+  const [loadingTrips, setLoadingTrips] = useState(true);
+
+  useEffect(() => {
+    const fetchTrips = async () => {
+      setLoadingTrips(true);
+      try {
+        let url = 'https://bezbxacfnfgbbvgtwhxh.supabase.co/functions/v1/get-trips';
+        const params = new URLSearchParams();
+        if (selectedDriver) {
+          params.append('driverId', selectedDriver);
+        }
+
+        if (params.toString()) {
+          url += `?${params.toString()}`;
+        }
+
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${user.id}`,
+          },
+        });
+        const data = await response.json();
+        if (response.ok) {
+          const mappedTrips = data.trips.map(trip => ({
+            id: trip.id,
+            driverId: trip.driver_id,
+            date: trip.trip_date,
+            startKm: trip.start_km,
+            endKm: trip.end_km,
+            fuelKg: trip.fuel_kg,
+            cashCollected: trip.cash_collected,
+            route: trip.route,
+            driverName: trip.drivers ? trip.drivers.name : 'N/A'
+          }));
+          setFilteredTrips(mappedTrips);
+        } else {
+          console.error('Error fetching trips:', data.error);
+          setFilteredTrips(mockTripSheets);
+        }
+      } catch (error) {
+        console.error('Network error fetching trips:', error);
+        setFilteredTrips(mockTripSheets);
+      } finally {
+        setLoadingTrips(false);
+      }
+    };
+
+    if (user) {
+      fetchTrips();
+    }
+  }, [selectedDriver, user]);
+
+  if (loadingTrips) {
+    return <div className="text-center text-gray-600">Loading trip data...</div>;
+  }
+
+  return (
+    <div className="space-y-8">
+      <h2 className="text-3xl font-bold text-gray-800">Manager Dashboard</h2>
+
+      <DriverSelector selectedDriver={selectedDriver} onSelectDriver={setSelectedDriver} />
+
+      <CashFuelSummary data={filteredTrips} />
+
+      <Card className="shadow-lg rounded-lg">
+        <CardHeader>
+          <CardTitle>Daily Fleet Activity</CardTitle>
+          <CardDescription>Overview of trips, fuel, and cash over time.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart
+              data={mockDailyStats}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
+              <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
+              <Tooltip />
+              <Legend />
+              <Bar yAxisId="left" dataKey="trips" fill="#8884d8" name="Trips" />
+              <Bar yAxisId="right" dataKey="fuel" fill="#82ca9d" name="Fuel (KG)" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      <HistoryTable data={filteredTrips} />
+    </div>
+  );
+};
+
+const ReportsPage = () => {
+  const { user } = useAuth();
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('');
+  const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
+
+  const handleDownload = async () => {
+    setMessage('Generating report... Please wait.');
+    setMessageType('success');
+    try {
+      const url = `https://bezbxacfnfgbbvgtwhxh.supabase.co/functions/v1/get-report?date=${reportDate}`;
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${user.id}`,
+        },
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `fleet_report_${reportDate}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+        setMessage('Report downloaded successfully!');
+      } else {
+        const errorText = await response.text();
+        console.error('Error generating report:', errorText);
+        setMessage(`Failed to generate report: ${errorText}`);
+        setMessageType('error');
+      }
+    } catch (error) {
+      console.error('Network error generating report:', error);
+      setMessage('Network error: Could not connect to the server for report generation.');
+      setMessageType('error');
+    }
+    setTimeout(() => setMessage(''), 5000);
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full py-8">
+      <Card className="w-full max-w-md mx-auto p-6 shadow-lg rounded-lg text-center">
+        <CardHeader>
+          <CardTitle>Download Reports</CardTitle>
+          <CardDescription>Generate and download daily or custom reports.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col items-center space-y-2">
+            <Label htmlFor="reportDate">Select Date for Report:</Label>
+            <Input
+              type="date"
+              id="reportDate"
+              value={reportDate}
+              onChange={(e) => setReportDate(e.target.value)}
+              className="w-full max-w-[200px]"
+            />
+          </div>
+          <Button onClick={handleDownload} className="w-full">
+            <FileText className="mr-2 h-5 w-5" /> Generate Report
+          </Button>
+          {message && (
+            <p className={`mt-2 ${messageType === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+              {message}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+const AuditPage = () => {
+  const { user } = useAuth();
+  const [anomalies, setAnomalies] = useState([]);
+  const [loadingAnomalies, setLoadingAnomalies] = useState(true);
+
+  useEffect(() => {
+    const fetchAnomalies = async () => {
+      setLoadingAnomalies(true);
+      try {
+        const response = await fetch('https://bezbxacfnfgbbvgtwhxh.supabase.co/functions/v1/get-anomalies', {
+          headers: {
+            'Authorization': `Bearer ${user.id}`,
+          },
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setAnomalies(data.anomalies.map(anomaly => ({
+            id: anomaly.id,
+            type: anomaly.anomaly_type,
+            description: anomaly.description,
+            flaggedAt: new Date(anomaly.flagged_at).toLocaleString(),
+            driverName: anomaly.tripsheets?.drivers?.name || 'N/A',
+            tripDate: anomaly.tripsheets?.trip_date || 'N/A',
+          })));
+        } else {
+          console.error('Error fetching anomalies:', data.error);
+          setAnomalies([]);
+        }
+      } catch (error) {
+        console.error('Network error fetching anomalies:', error);
+        setAnomalies([]);
+      } finally {
+        setLoadingAnomalies(false);
+      }
+    };
+
+    if (user) {
+      fetchAnomalies();
+    }
+  }, [user]);
+
+  if (loadingAnomalies) {
+    return <div className="text-center text-gray-600">Loading anomalies...</div>;
+  }
+
+  return (
+    <div className="space-y-8">
+      <h2 className="text-3xl font-bold text-gray-800">AI Flagged Anomalies</h2>
+      <Card className="shadow-lg rounded-lg">
+        <CardHeader>
+          <CardTitle>Anomaly List</CardTitle>
+          <CardDescription>Issues flagged by the daily audit engine.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {anomalies.length === 0 ? (
+            <p className="text-gray-500">No anomalies detected recently. All clear!</p>
+          ) : (
+            <ul className="space-y-4">
+              {anomalies.map(anomaly => (
+                <li key={anomaly.id} className="p-4 border rounded-md bg-red-50 border-red-200">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-red-700">{anomaly.type}</h4>
+                    <span className="text-sm text-gray-500">{anomaly.flaggedAt}</span>
+                  </div>
+                  <p className="text-sm text-gray-800 mt-1">
+                    {anomaly.description}
+                    {anomaly.driverName !== 'N/A' && ` (Driver: ${anomaly.driverName})`}
+                    {anomaly.tripDate !== 'N/A' && ` (Trip Date: ${anomaly.tripDate})`}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+const ChatPage = () => {
+  return (
+    <div className="flex flex-col items-center justify-center h-full py-8">
+      <ChatInterface />
+    </div>
+  );
+};
+
 // --- Main App Component with Authentication ---
 const AppContent = () => {
   const { user, userProfile, signOut, isDriver, isManager, isAdmin } = useAuth();
-  const [currentPage, setCurrentPage] = useState('/dashboard'); // Default to dashboard
+  const [currentPage, setCurrentPage] = useState('/dashboard');
 
   const handleSignOut = async () => {
     await signOut();
@@ -683,279 +932,6 @@ const AppContent = () => {
         </main>
       </div>
     </AppContext.Provider>
-  );
-};
-
-// --- Page Components ---
-const EntryPage = () => {
-  return (
-    <div className="flex flex-col items-center justify-center h-full py-8">
-      <TripSheetForm />
-    </div>
-  );
-};
-
-const DashboardPage = () => {
-  const { user } = useAuth();
-  const [selectedDriver, setSelectedDriver] = useState('');
-  const [filteredTrips, setFilteredTrips] = useState([]);
-  const [loadingTrips, setLoadingTrips] = useState(true);
-
-  useEffect(() => {
-    const fetchTrips = async () => {
-      setLoadingTrips(true);
-      try {
-        let url = 'https://bezbxacfnfgbbvgtwhxh.supabase.co/functions/v1/get-trips';
-        const params = new URLSearchParams();
-        if (selectedDriver) {
-          params.append('driverId', selectedDriver);
-        }
-        // Add date filter if needed, e.g., for 'today's trips'
-        // params.append('date', format(new Date(), 'yyyy-MM-dd'));
-
-        if (params.toString()) {
-          url += `?${params.toString()}`;
-        }
-
-        const response = await fetch(url, {
-          headers: {
-            'Authorization': `Bearer ${user.id}`,
-          },
-        });
-        const data = await response.json();
-        if (response.ok) {
-          // Map the fetched data to match the mock structure for existing components
-          const mappedTrips = data.trips.map(trip => ({
-            id: trip.id,
-            driverId: trip.driver_id,
-            date: trip.trip_date,
-            startKm: trip.start_km,
-            endKm: trip.end_km,
-            fuelKg: trip.fuel_kg,
-            cashCollected: trip.cash_collected,
-            route: trip.route,
-            // Assuming driver name is nested under 'drivers'
-            driverName: trip.drivers ? trip.drivers.name : 'N/A'
-          }));
-          setFilteredTrips(mappedTrips);
-        } else {
-          console.error('Error fetching trips:', data.error);
-          setFilteredTrips([]);
-        }
-      } catch (error) {
-        console.error('Network error fetching trips:', error);
-        setFilteredTrips([]);
-      } finally {
-        setLoadingTrips(false);
-      }
-    };
-
-    if (user) { // Only fetch if auth is ready
-      fetchTrips();
-    }
-  }, [selectedDriver, user]); // Re-fetch when driver filter or user changes
-
-  if (loadingTrips) {
-    return <div className="text-center text-gray-600">Loading trip data...</div>;
-  }
-
-  return (
-    <div className="space-y-8">
-      <h2 className="text-3xl font-bold text-gray-800">Manager Dashboard</h2>
-
-      <DriverSelector selectedDriver={selectedDriver} onSelectDriver={setSelectedDriver} />
-
-      <CashFuelSummary data={filteredTrips} />
-
-      <Card className="shadow-lg rounded-lg">
-        <CardHeader>
-          <CardTitle>Daily Fleet Activity</CardTitle>
-          <CardDescription>Overview of trips, fuel, and cash over time.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart
-              data={mockDailyStats} // Keep mock data for chart for now, or fetch aggregated data
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
-              <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
-              <Tooltip />
-              <Legend />
-              <Bar yAxisId="left" dataKey="trips" fill="#8884d8" name="Trips" />
-              <Bar yAxisId="right" dataKey="fuel" fill="#82ca9d" name="Fuel (KG)" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      <HistoryTable data={filteredTrips} />
-    </div>
-  );
-};
-
-const ReportsPage = () => {
-  const { user } = useAuth();
-  const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState('');
-  const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]); // Default to today
-
-  const handleDownload = async () => {
-    setMessage('Generating report... Please wait.');
-    setMessageType('success');
-    try {
-      const url = `https://bezbxacfnfgbbvgtwhxh.supabase.co/functions/v1/get-report?date=${reportDate}`;
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${user.id}`,
-        },
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `fleet_report_${reportDate}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(downloadUrl);
-        setMessage('Report downloaded successfully!');
-      } else {
-        const errorText = await response.text();
-        console.error('Error generating report:', errorText);
-        setMessage(`Failed to generate report: ${errorText}`);
-        setMessageType('error');
-      }
-    } catch (error) {
-      console.error('Network error generating report:', error);
-      setMessage('Network error: Could not connect to the server for report generation.');
-      setMessageType('error');
-    }
-    setTimeout(() => setMessage(''), 5000); // Clear message after 5 seconds
-  };
-
-  return (
-    <div className="flex flex-col items-center justify-center h-full py-8">
-      <Card className="w-full max-w-md mx-auto p-6 shadow-lg rounded-lg text-center">
-        <CardHeader>
-          <CardTitle>Download Reports</CardTitle>
-          <CardDescription>Generate and download daily or custom reports.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col items-center space-y-2">
-            <Label htmlFor="reportDate">Select Date for Report:</Label>
-            <Input
-              type="date"
-              id="reportDate"
-              value={reportDate}
-              onChange={(e) => setReportDate(e.target.value)}
-              className="w-full max-w-[200px]"
-            />
-          </div>
-          <Button onClick={handleDownload} className="w-full">
-            <FileText className="mr-2 h-5 w-5" /> Generate Report
-          </Button>
-          {message && (
-            <p className={`mt-2 ${messageType === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-              {message}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
-const AuditPage = () => {
-  const { user } = useAuth();
-  const [anomalies, setAnomalies] = useState([]);
-  const [loadingAnomalies, setLoadingAnomalies] = useState(true);
-
-  useEffect(() => {
-    const fetchAnomalies = async () => {
-      setLoadingAnomalies(true);
-      try {
-        const response = await fetch('https://bezbxacfnfgbbvgtwhxh.supabase.co/functions/v1/get-anomalies', {
-          headers: {
-            'Authorization': `Bearer ${user.id}`,
-          },
-        });
-        const data = await response.json();
-        if (response.ok) {
-          // Map fetched anomalies to match mock structure if needed, or adjust rendering
-          setAnomalies(data.anomalies.map(anomaly => ({
-            id: anomaly.id,
-            type: anomaly.anomaly_type,
-            description: anomaly.description,
-            flaggedAt: new Date(anomaly.flagged_at).toLocaleString(),
-            // Add more context from joined tables if available and needed for display
-            driverName: anomaly.tripsheets?.drivers?.name || 'N/A',
-            tripDate: anomaly.tripsheets?.trip_date || 'N/A',
-          })));
-        } else {
-          console.error('Error fetching anomalies:', data.error);
-          setAnomalies([]);
-        }
-      } catch (error) {
-        console.error('Network error fetching anomalies:', error);
-        setAnomalies([]);
-      } finally {
-        setLoadingAnomalies(false);
-      }
-    };
-
-    if (user) { // Only fetch if auth is ready
-      fetchAnomalies();
-    }
-  }, [user]);
-
-  if (loadingAnomalies) {
-    return <div className="text-center text-gray-600">Loading anomalies...</div>;
-  }
-
-  return (
-    <div className="space-y-8">
-      <h2 className="text-3xl font-bold text-gray-800">AI Flagged Anomalies</h2>
-      <Card className="shadow-lg rounded-lg">
-        <CardHeader>
-          <CardTitle>Anomaly List</CardTitle>
-          <CardDescription>Issues flagged by the daily audit engine.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {anomalies.length === 0 ? (
-            <p className="text-gray-500">No anomalies detected recently. All clear!</p>
-          ) : (
-            <ul className="space-y-4">
-              {anomalies.map(anomaly => (
-                <li key={anomaly.id} className="p-4 border rounded-md bg-red-50 border-red-200">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-red-700">{anomaly.type}</h4>
-                    <span className="text-sm text-gray-500">{anomaly.flaggedAt}</span>
-                  </div>
-                  <p className="text-sm text-gray-800 mt-1">
-                    {anomaly.description}
-                    {anomaly.driverName !== 'N/A' && ` (Driver: ${anomaly.driverName})`}
-                    {anomaly.tripDate !== 'N/A' && ` (Trip Date: ${anomaly.tripDate})`}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
-const ChatPage = () => {
-  return (
-    <div className="flex flex-col items-center justify-center h-full py-8">
-      <ChatInterface />
-    </div>
   );
 };
 
